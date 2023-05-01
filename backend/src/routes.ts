@@ -3,6 +3,8 @@ import { Match } from "./db/entities/Match.js";
 import {Messages} from "./db/entities/Messages.js";
 import {User} from "./db/entities/User.js";
 import {ICreateUsersBody} from "./types.js";
+import {IntegerType} from "@mikro-orm/core";
+import {readFile}from "fs";
 
 async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 	if (!app) {
@@ -131,56 +133,146 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 		}
 
 	});
-	
-	
-	
+
+ 
 	//send message
 	// eslint-disable-next-line max-len
 	app.post<{Body: {sender_email: string, receiver_email:string, message_data:string}}>("/messages", async (req, reply) => {
 		const{sender_email, receiver_email, message_data} = req.body;
 		
 		try {
+			const filePath = '/home/d/workspace/doggr_sp23/backend/src/files/bad_word.txt';
+			
 			//make sure that the sender and receiver both exist and get their account
-			
+			readFile(filePath, 'utf8', function(err, data) {
+				if (err) {
+					console.error(`Error reading file: ${err}`);
+					return reply.status(500).send(err);
+				}
+				
+				const our_names = data.split('\n');
+				our_names.pop(); // Removing last empty line
+				
+				for (const word_idx in our_names) {
+					const word = our_names[word_idx];
+					if (message_data.includes(word)) {
+						console.error("Inapropriate word found in your message, you are naughty");
+						return reply.status(500).send("Inapropriate word found in your message, you are naughty");
+					}
+				}
+				
+			});
 			//go to the database and look for the user whose email matches the sender_email
-			const sender= await req.em.findOne(User, {email: sender_email});
-			
+			const sender = await req.em.findOne(User, {email: sender_email});
+				
 			//go to the database and look for the user whose email matches the sender_email
-			const receiver= await req.em.findOne(User, {email: receiver_email});
-			
+			const receiver = await req.em.findOne(User, {email: receiver_email});
+				
 			//create new message
 			const newMessage: Messages = await req.em.create(Messages, {
 				sender,
 				receiver,
 				message_data
 			});
-			
+				
 			//save message to database
 			await req.em.flush();
-			
+				
 			return reply.send(newMessage);
-			
-		}catch (err){
+				
+		} catch (err) {
 			console.error(err);
 			return reply.status(500).send(err);
 		}
+			
 		
 	});
 	
 	
 	
-	//read all the messages I have sent
-	//SELECT * FROM messages WHERE sender = 'current_user_id';
-	app.select("/messages", async (req, reply) => {
-		const { sender_email } = req.body;
-		
+
+	app.search("/messages", async (req, reply) => {
+		const { sender_email, receiver_email } = req.body;
 		
 		try {
+			//read all the messages I have sent
+			//SELECT * FROM messages WHERE sender = 'current_user_id';
+
+			if(sender_email!){
+				//go to the database and look for messages from a particular user
+				const sender = await req.em.findOne(User, {email: sender_email});
+				const id_of_sender = sender.id;
+
+				const message_log = await  req.em.find(Messages, {sender_id: id_of_sender});
+				//const message_log = await req.em.findOne(Messages, {sender_email: email });
+
+				console.log(message_log);
+				reply.send(message_log);
+			}
+			//read all the messages sent to me
+			//SELECT * FROM messages WHERE receiver = 'current_user_id';
+
+			if(receiver_email!){
+				const receiver = await req.em.findOne(User, {email: receiver_email});
+				const id_of_receiver = receiver.id;
+
+				const message_log = await  req.em.find(Messages, {receiver_id: id_of_receiver});
+				//const message_log = await req.em.findOne(Messages, {sender_email: email });
+
+				console.log(message_log);
+				reply.send(message_log);
+			}
+		} catch (err) {
+			console.error(err);
+			reply.status(500).send(err);
+		}
+	});
+
+
+	// UPDATE the sent message
+	app.put<{Body: {id, message_data:string}}>("/messages", async(req, reply) => {
+		const { id, message_data} = req.body;
+
+		const messageToChange = await req.em.findOne(Messages, {id});
+		messageToChange.message_data = message_data;
+
+		// Reminder -- this is how we persist our JS object changes to the database itself
+		await req.em.flush();
+		console.log(messageToChange);
+		reply.send(messageToChange);
+
+	});
+
+
+
+	// DELETE
+	app.delete<{ Body: {id}}>("/messages", async(req, reply) => {
+		const { id } = req.body;
+
+		try {
+			const messageToDelete = await req.em.findOne(Messages, {id} );
+
+			await req.em.remove(messageToDelete).flush();
+			console.log(messageToDelete);
+			reply.send(messageToDelete);
+		} catch (err) {
+			console.error(err);
+			reply.status(500).send(err);
+		}
+	});
+
+
+	//Delete all
+	app.delete<{Body: {sender_email}}>("/messages/all", async (req, reply) => {
+		const { sender_email } = req.body;
+
+		try {
 			//go to the database and look for messages from a particular user
-			const id_of_sender = await req.em.findOne(User, {email: sender_email});
-			const message_log = await  req.em.findOne(Messages, {sender_id: id_of_sender});
-			//const message_log = await req.em.findOne(Messages, {sender_email: email });
-			
+			const sender = await req.em.findOne(User, {email: sender_email});
+
+			const message_log = await  req.em.find(Messages, {sender: sender});
+
+			await req.em.remove(message_log).flush();
 			console.log(message_log);
 			reply.send(message_log);
 		} catch (err) {
@@ -188,10 +280,12 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			reply.status(500).send(err);
 		}
 	});
+
+
+	//Bad word filter
 	
-	
-	//read all the messages sent to me
-	//SELECT * FROM messages WHERE receiver = 'current_user_id';
+
+
 	
 }
 

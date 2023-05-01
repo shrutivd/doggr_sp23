@@ -4,7 +4,10 @@ import { Match } from "./Match.js";
 import {Messages} from "./Messages.js";
 
 @Entity({ tableName: "users"})
-export class User extends BaseEntity {	
+export class User extends BaseEntity {
+	@Property()
+	isAdmin: boolean = false;
+	
 	@Property()
 	@Unique()
 	email!: string;
