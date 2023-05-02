@@ -43,13 +43,14 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 	// CRUD
 	// C
 	app.post<{Body: ICreateUsersBody}>("/users", async (req, reply) => {
-		const { name, email, petType} = req.body;
+		const { name, email, petType, isAdmin} = req.body;
 		
 		try {
 			const newUser = await req.em.create(User, {
 				name,
 				email,
-				petType
+				petType,
+				isAdmin
 			});
 
 			await req.em.flush();
@@ -95,8 +96,10 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 	app.delete<{ Body: {email}}>("/users", async(req, reply) => {
 		const { email } = req.body;
 		
+		
 		try {
 			const theUser = await req.em.findOne(User, { email });
+			
 			
 			await req.em.remove(theUser).flush();
 			console.log(theUser);
@@ -106,6 +109,8 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			reply.status(500).send(err);
 		}
 	});
+	
+	
 
 	// CREATE MATCH ROUTE
 	app.post<{Body: { email: string, matchee_email: string }}>("/match", async (req, reply) => {
@@ -246,11 +251,31 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 
 
 	// DELETE
-	app.delete<{ Body: {id}}>("/messages", async(req, reply) => {
-		const { id } = req.body;
+	app.delete<{ Body: {id, password}}>("/messages", async(req, reply) => {
+		const { id, password } = req.body;
 
 		try {
 			const messageToDelete = await req.em.findOne(Messages, {id} );
+			
+			const sender = await req.em.findOne(User, {id: messageToDelete.sender.id});
+			
+			///go to the database and look for the user whose email matches the sender_email
+			const receiver = await req.em.findOne(User, {id: messageToDelete.receiver.id});
+			
+			console.log("sender is admin:", sender.isAdmin);
+			console.log("receiver is admin:", receiver.isAdmin);
+			
+			if(messageToDelete.sender.isAdmin == 'false' && messageToDelete.receiver.isAdmin == 'false'){
+				console.error("Only admin can delete messages.");
+				return reply.status(401).send("Only admin can delete messages");
+			}
+			
+			
+			if(password != "1997"){
+				const incorrect_password = "Incorrect Password";
+				console.error(incorrect_password);
+				return reply.status(401).send(incorrect_password);
+			}
 
 			await req.em.remove(messageToDelete).flush();
 			console.log(messageToDelete);
@@ -263,14 +288,26 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 
 
 	//Delete all
-	app.delete<{Body: {sender_email}}>("/messages/all", async (req, reply) => {
-		const { sender_email } = req.body;
+	app.delete<{Body: {sender_email, password}}>("/messages/all", async (req, reply) => {
+		const { sender_email, password } = req.body;
 
 		try {
 			//go to the database and look for messages from a particular user
 			const sender = await req.em.findOne(User, {email: sender_email});
 
 			const message_log = await  req.em.find(Messages, {sender: sender});
+			
+			if(sender.isAdmin == 'false'){
+				console.error("Only admin can delete messages.");
+				return reply.status(401).send("Only admin can delete messages");
+			}
+			
+			
+			if(password != "1997"){
+				const incorrect_password = "Incorrect Password";
+				console.error(incorrect_password);
+				return reply.status(401).send(incorrect_password);
+			}
 
 			await req.em.remove(message_log).flush();
 			console.log(message_log);

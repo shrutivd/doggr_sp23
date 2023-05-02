@@ -1,5 +1,6 @@
 export type ICreateUsersBody = {
 	name: string,
 	email: string,
-	petType: string
+	petType: string,
+	isAdmin:string
 }

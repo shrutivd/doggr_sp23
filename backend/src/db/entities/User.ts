@@ -5,8 +5,9 @@ import {Messages} from "./Messages.js";
 
 @Entity({ tableName: "users"})
 export class User extends BaseEntity {
+	
 	@Property()
-	isAdmin: boolean = false;
+	isAdmin: string="false";
 	
 	@Property()
 	@Unique()

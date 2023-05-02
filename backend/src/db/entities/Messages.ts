@@ -25,7 +25,6 @@ export class Messages extends BaseEntity{
 	message_data: string;
 	
 	
-	
 }
 
 
