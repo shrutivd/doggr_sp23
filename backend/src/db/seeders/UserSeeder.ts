@@ -7,31 +7,36 @@ export class UserSeeder extends Seeder {
 		em.create(User, {
 			name: "Admin",
 			email: "admin@email.com",
-			petType: "Dog"
+			petType: "Dog",
+			isAdmin: "true"
 		});
 
 		em.create(User, {
 			name: "Spot",
 			email: "email@email.com",
-			petType: "Dog"
+			petType: "Dog",
+			isAdmin: "false"
 		});
 
 		em.create(User, {
 			name: "Dogbert",
 			email: "email2@email.com",
-			petType: "Dog"
+			petType: "Dog",
+			isAdmin: "false"
 		});
 
 		em.create(User, {
 			name: "Doglord",
 			email: "email3@email.com",
-			petType: "Dog"
+			petType: "Dog",
+			isAdmin: "false"
 		});
 
 		em.create(User, {
 			name: "NotaDog",
 			email: "email4@email.com",
-			petType: "Cat"
+			petType: "Cat",
+			isAdmin: "false"
 		});
 	}
 }

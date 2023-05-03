@@ -92,15 +92,14 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 		reply.send(userToChange);
 		
 	});
+
 	
 	// DELETE
 	app.delete<{ Body: {email}}>("/users", async(req, reply) => {
 		const { email } = req.body;
 		
-		
 		try {
 			const theUser = await req.em.findOne(User, { email });
-			
 			
 			await req.em.remove(theUser).flush();
 			console.log(theUser);
@@ -148,7 +147,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 
 		const sender_email = req.body.sender;
 		const receiver_email = req.body.receiver;
-		const message_data = req.body.message;
+		const message_data = req.body.message.toLowerCase();
 		
 		try {
 			const filePath = '/home/d/workspace/doggr_sp23/backend/src/files/bad_word.txt';
@@ -160,11 +159,11 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 					return reply.status(500).send(err);
 				}
 				
-				const our_names = data.split('\n');
-				our_names.pop(); // Removing last empty line
+				const bad_word = data.split('\n');
+				bad_word.pop(); // Removing last empty line
 				
-				for (const word_idx in our_names) {
-					const word = our_names[word_idx];
+				for (const word_idx in bad_word) {
+					const word = bad_word[word_idx].toLowerCase();
 					if (message_data.includes(word)) {
 						console.error("Inapropriate word found in your message, you are naughty");
 						return reply.status(500).send("Inapropriate word found in your message, you are naughty");
@@ -187,14 +186,12 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 				
 			//save message to database
 			await req.em.flush();
-				
 			return reply.send(newMessage);
 				
 		} catch (err) {
 			console.error(err);
 			return reply.status(500).send(err);
 		}
-			
 		
 	});
 
@@ -210,9 +207,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 				//go to the database and look for messages from a particular user
 				const sender_user = await req.em.findOne(User, {email: sender});
 				const id_of_sender = sender_user.id;
-
 				const message_log = await  req.em.find(Messages, {sender_id: id_of_sender});
-
 				console.log(message_log);
 				reply.send(message_log);
 			}
@@ -221,6 +216,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			reply.status(500).send(err);
 		}
 	});
+
 
 	app.search("/messages", async (req, reply) => {
 		const { receiver } = req.body;
@@ -259,7 +255,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 		  reply.send(messageToChange);
 	  }catch (err){
 		  console.error(err);
-		  reply.status(500).send(err);
+		  reply.status(401).send(err);
 	  }
 
 	});
@@ -276,8 +272,6 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			const messageToDelete = await req.em.findOne(Messages, {id} );
 			
 			const sender = await req.em.findOne(User, {id: messageToDelete.sender.id});
-			
-			///go to the database and look for the user whose email matches the sender_email
 			const receiver = await req.em.findOne(User, {id: messageToDelete.receiver.id});
 
 			
@@ -285,8 +279,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 				console.error("Only admin can delete messages.");
 				return reply.status(401).send("Only admin can delete messages");
 			}
-			
-			
+
 			if(password != "1997"){
 				const incorrect_password = "Incorrect Password";
 				console.error(incorrect_password);
@@ -310,7 +303,6 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 		try {
 			//go to the database and look for messages from a particular user
 			const sender_user = await req.em.findOne(User, {email: sender});
-
 			const message_log = await  req.em.find(Messages, {sender: sender_user});
 			
 			if(sender_user.isAdmin == "false"){
@@ -335,10 +327,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 	});
 
 
-	
 
-
-	
 }
 
 export default DoggrRoutes;
