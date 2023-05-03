@@ -7,7 +7,7 @@ import type {Rel} from '@mikro-orm/core';
 
 
 
-@Entity()
+@Entity({ tableName: "messages"})
 export class Messages extends BaseEntity{
 	
 	

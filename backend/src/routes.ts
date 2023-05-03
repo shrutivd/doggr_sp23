@@ -2,6 +2,7 @@ import {FastifyInstance, FastifyReply, FastifyRequest} from "fastify";
 import { Match } from "./db/entities/Match.js";
 import {Messages} from "./db/entities/Messages.js";
 import {User} from "./db/entities/User.js";
+
 import {ICreateUsersBody} from "./types.js";
 import {IntegerType} from "@mikro-orm/core";
 import {readFile}from "fs";
@@ -142,8 +143,12 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
  
 	//send message
 	// eslint-disable-next-line max-len
-	app.post<{Body: {sender_email: string, receiver_email:string, message_data:string}}>("/messages", async (req, reply) => {
-		const{sender_email, receiver_email, message_data} = req.body;
+	app.post<{Body: {sender: string, receiver:string, message:string}}>("/messages", async (req, reply) => {
+		//const{ receiver, message} = req.body;
+
+		const sender_email = req.body.sender;
+		const receiver_email = req.body.receiver;
+		const message_data = req.body.message;
 		
 		try {
 			const filePath = '/home/d/workspace/doggr_sp23/backend/src/files/bad_word.txt';
@@ -192,34 +197,38 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			
 		
 	});
-	
-	
-	
 
-	app.search("/messages", async (req, reply) => {
-		const { sender_email, receiver_email } = req.body;
-		
+
+	app.search("/messages/sent", async (req, reply) => {
+		const { sender } = req.body;
+
 		try {
 			//read all the messages I have sent
 			//SELECT * FROM messages WHERE sender = 'current_user_id';
 
-			if(sender_email!){
+			if(sender!){
 				//go to the database and look for messages from a particular user
-				const sender = await req.em.findOne(User, {email: sender_email});
-				const id_of_sender = sender.id;
+				const sender_user = await req.em.findOne(User, {email: sender});
+				const id_of_sender = sender_user.id;
 
 				const message_log = await  req.em.find(Messages, {sender_id: id_of_sender});
-				//const message_log = await req.em.findOne(Messages, {sender_email: email });
 
 				console.log(message_log);
 				reply.send(message_log);
 			}
-			//read all the messages sent to me
-			//SELECT * FROM messages WHERE receiver = 'current_user_id';
+		} catch (err) {
+			console.error(err);
+			reply.status(500).send(err);
+		}
+	});
 
-			if(receiver_email!){
-				const receiver = await req.em.findOne(User, {email: receiver_email});
-				const id_of_receiver = receiver.id;
+	app.search("/messages", async (req, reply) => {
+		const { receiver } = req.body;
+
+		try {
+			if(receiver!){
+				const receiver_user = await req.em.findOne(User, {email: receiver});
+				const id_of_receiver = receiver_user.id;
 
 				const message_log = await  req.em.find(Messages, {receiver_id: id_of_receiver});
 				//const message_log = await req.em.findOne(Messages, {sender_email: email });
@@ -235,24 +244,33 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 
 
 	// UPDATE the sent message
-	app.put<{Body: {id, message_data:string}}>("/messages", async(req, reply) => {
-		const { id, message_data} = req.body;
+	app.put<{Body: {messageId, message:string}}>("/messages", async(req, reply) => {
 
-		const messageToChange = await req.em.findOne(Messages, {id});
-		messageToChange.message_data = message_data;
+      try {
+		  const id = req.body.messageId;
+		  const message_data = req.body.message;
 
-		// Reminder -- this is how we persist our JS object changes to the database itself
-		await req.em.flush();
-		console.log(messageToChange);
-		reply.send(messageToChange);
+		  const messageToChange = await req.em.findOne(Messages, {id});
+		  messageToChange.message_data = message_data;
+
+		  // Reminder -- this is how we persist our JS object changes to the database itself
+		  await req.em.flush();
+		  console.log("Message updated");
+		  reply.send(messageToChange);
+	  }catch (err){
+		  console.error(err);
+		  reply.status(500).send(err);
+	  }
 
 	});
 
 
 
 	// DELETE
-	app.delete<{ Body: {id, password}}>("/messages", async(req, reply) => {
-		const { id, password } = req.body;
+	app.delete<{ Body: {messageId, password}}>("/messages", async(req, reply) => {
+
+		const id = req.body.messageId;
+		const password = req.body.password;
 
 		try {
 			const messageToDelete = await req.em.findOne(Messages, {id} );
@@ -261,9 +279,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			
 			///go to the database and look for the user whose email matches the sender_email
 			const receiver = await req.em.findOne(User, {id: messageToDelete.receiver.id});
-			
-			console.log("sender is admin:", sender.isAdmin);
-			console.log("receiver is admin:", receiver.isAdmin);
+
 			
 			if(messageToDelete.sender.isAdmin == 'false' && messageToDelete.receiver.isAdmin == 'false'){
 				console.error("Only admin can delete messages.");
@@ -278,7 +294,7 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 			}
 
 			await req.em.remove(messageToDelete).flush();
-			console.log(messageToDelete);
+			console.log("Message deleted");
 			reply.send(messageToDelete);
 		} catch (err) {
 			console.error(err);
@@ -288,29 +304,29 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 
 
 	//Delete all
-	app.delete<{Body: {sender_email, password}}>("/messages/all", async (req, reply) => {
-		const { sender_email, password } = req.body;
+	app.delete<{Body: {sender, password}}>("/messages/all", async (req, reply) => {
+		const { sender, password } = req.body;
 
 		try {
 			//go to the database and look for messages from a particular user
-			const sender = await req.em.findOne(User, {email: sender_email});
+			const sender_user = await req.em.findOne(User, {email: sender});
 
-			const message_log = await  req.em.find(Messages, {sender: sender});
+			const message_log = await  req.em.find(Messages, {sender: sender_user});
 			
-			if(sender.isAdmin == 'false'){
+			if(sender_user.isAdmin == "false"){
 				console.error("Only admin can delete messages.");
 				return reply.status(401).send("Only admin can delete messages");
 			}
 			
 			
-			if(password != "1997"){
+			if(password != process.env.PASSWORD){
 				const incorrect_password = "Incorrect Password";
 				console.error(incorrect_password);
 				return reply.status(401).send(incorrect_password);
 			}
 
 			await req.em.remove(message_log).flush();
-			console.log(message_log);
+			console.log("Messages deleted");
 			reply.send(message_log);
 		} catch (err) {
 			console.error(err);
@@ -319,7 +335,6 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 	});
 
 
-	//Bad word filter
 	
 
 
