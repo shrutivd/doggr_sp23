@@ -2,6 +2,8 @@ import {FastifyInstance, FastifyReply, FastifyRequest} from "fastify";
 import { Match } from "./db/entities/Match.js";
 import {Messages} from "./db/entities/Messages.js";
 import {User} from "./db/entities/User.js";
+import path from 'path';
+import { fileURLToPath} from "url";
 
 import {ICreateUsersBody} from "./types.js";
 import {IntegerType} from "@mikro-orm/core";
@@ -150,10 +152,13 @@ async function DoggrRoutes(app: FastifyInstance, _options = {}) {
 		const message_data = req.body.message.toLowerCase();
 		
 		try {
-			const filePath = '/home/d/workspace/doggr_sp23/backend/src/files/bad_word.txt';
+			const __thisfile = fileURLToPath(import.meta.url);
+			const __thisdir = path.dirname(__thisfile);
+			const badWordPath = path.join(__thisdir, "../bad_word.txt");
+
 			
 			//make sure that the sender and receiver both exist and get their account
-			readFile(filePath, 'utf8', function(err, data) {
+			readFile(badWordPath, 'utf8', function(err, data) {
 				if (err) {
 					console.error(`Error reading file: ${err}`);
 					return reply.status(500).send(err);
